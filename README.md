@@ -61,7 +61,7 @@ Uno 5V → breadboard + rail, Uno GND → − rail. Total draw ≈ 35 mA from US
 | Notifications | scroll | back | read message |
 | Quick actions | move | back | Mission Control, dark mode, screenshot, keep awake, sleep display, open Desktop, keypad setup |
 
-Spotify shows hints for 5 s, then an animated sound meter (visual effect — Spotify doesn't expose live audio levels).
+**Spotify is the resting screen**: Decky starts on it and returns to it after 15 s without input (`IDLE_TO_SPOTIFY` in `mac/deck.py`). It shows song, artist, clock and volume; hints appear for 5 s, then an animated sound meter (a visual effect — Spotify doesn't expose live audio levels) that goes flat when paused.
 
 ## Repo layout
 

@@ -144,7 +144,7 @@ For notifications, add <code>/usr/bin/python3</code> under Privacy &amp; Securit
 <tr><td>Volume</td><td>&plusmn;5%</td><td>Right = +5%</td><td>Mute</td></tr>
 <tr><td>Notifications</td><td>Scroll</td><td>Back</td><td>Read full message</td></tr>
 <tr><td>Quick actions</td><td>Move</td><td>Back</td><td>Run: Mission Control, dark mode, screenshot, keep awake, sleep display, open Desktop, set up keypad</td></tr></table>
-<p>Spotify shows control hints for 5 seconds, then an animated sound meter on the bottom row (a visual effect; Spotify does not expose live audio levels). New notifications pop up as a banner on any screen.</p>
+<p><b>Spotify is the resting screen:</b> Decky starts on it and returns to it after 15 seconds without input. It shows song, artist, clock and volume; control hints appear for 5 seconds, then an animated sound meter on the bottom row (a visual effect; Spotify does not expose live audio levels) that goes flat when paused. New notifications pop up as a banner on any screen.</p>
 
 <h2>6. Troubleshooting</h2>
 <table><tr><th>Symptom</th><th>Fix</th></tr>
