@@ -441,7 +441,7 @@ Joystick: up/down move, right or click select, left back, hold click = back to h
 All menus and actions live here, so changing them never needs a reflash.
 Standard library only.
 &quot;&quot;&quot;
-import ctypes, glob, os, plistlib, select, shutil, sqlite3, subprocess, sys, termios, threading, time, unicodedata
+import ctypes, glob, os, plistlib, queue, select, shutil, sqlite3, subprocess, sys, termios, threading, time, unicodedata
 
 # ---- joystick orientation (flip these if directions feel reversed) ----
 INVERT_Y = False
@@ -543,15 +543,62 @@ def spotify(cmd):
 
 
 def running_apps():
-    out = osa(&#x27;tell application &quot;System Events&quot;\n set L to {}\n repeat with p in (every application process whose background only is false)\n&#x27;
-              &#x27;  set end of L to (name of p) &amp; &quot;|&quot; &amp; (bundle identifier of p) &amp; &quot;|&quot; &amp; (frontmost of p as string)\n end repeat\n&#x27;
-              &#x27; set AppleScript\&#x27;s text item delimiters to linefeed\n return L as text\nend tell&#x27;)
+    &quot;&quot;&quot;Open apps via NSWorkspace (about 10x faster than System Events).&quot;&quot;&quot;
+    out = osa_js(&#x27;ObjC.import(&quot;AppKit&quot;);var ws=$.NSWorkspace.sharedWorkspace,apps=ws.runningApplications,&#x27;
+                 &#x27;f=ws.frontmostApplication.bundleIdentifier.js,o=[];for(var i=0;i&lt;apps.count;i++){var a=apps.objectAtIndex(i);&#x27;
+                 &#x27;if(a.activationPolicy==0){var b=a.bundleIdentifier.js||&quot;&quot;;o.push(a.localizedName.js+&quot;|&quot;+b+&quot;|&quot;+(b==f));}}o.join(&quot;\\n&quot;)&#x27;)
     apps = []
     for line in out.splitlines():
         parts = line.split(&quot;|&quot;)
         if len(parts) == 3:
             apps.append((parts[0], parts[1], parts[2] == &quot;true&quot;))
     return sorted(apps, key=lambda a: (not a[2], a[0].lower()))
+
+
+def osa_js(script, timeout=8):
+    try:
+        return subprocess.run([&quot;osascript&quot;, &quot;-l&quot;, &quot;JavaScript&quot;, &quot;-e&quot;, script], capture_output=True, text=True, timeout=timeout).stdout.strip()
+    except subprocess.TimeoutExpired:
+        return &quot;&quot;
+
+
+# ---------------- background work: slow Mac calls never block the screen ----------------
+JOBS = queue.Queue()
+
+
+def do(fn):
+    &quot;&quot;&quot;Run a Mac action in the background, in order.&quot;&quot;&quot;
+    JOBS.put(fn)
+
+
+def _worker():
+    while True:
+        fn = JOBS.get()
+        try: fn()
+        except Exception as e: print(&quot;action failed:&quot;, e)
+
+
+class Cache:
+    &quot;&quot;&quot;Latest known Mac state, refreshed by poller threads; screens only read from here.&quot;&quot;&quot;
+    spotify = (&quot;?&quot;, 0, &quot;&quot;, &quot;&quot;)      # state, volume, track, artist
+    spotify_t = 0
+    volume = (0, False)
+    volume_t = 0
+    apps = None
+    apps_t = 0
+    want = set()                    # which caches the visible screen needs
+
+
+def _poller():
+    while True:
+        now = time.time()
+        if &quot;spotify&quot; in Cache.want and now - Cache.spotify_t &gt; 1.0:
+            Cache.spotify = spotify_status(); Cache.spotify_t = time.time()
+        if &quot;volume&quot; in Cache.want and now - Cache.volume_t &gt; 1.0:
+            Cache.volume = volume_get(); Cache.volume_t = time.time()
+        if &quot;apps&quot; in Cache.want and now - Cache.apps_t &gt; 3.0:
+            Cache.apps = running_apps(); Cache.apps_t = time.time()
+        time.sleep(0.1)
 
 
 NOTIF_DIR = os.path.expanduser(&quot;~/Library/Group Containers/group.com.apple.usernoted&quot;)
@@ -631,12 +678,14 @@ class Home(ListScreen):
 
 class SpotifyScreen(Screen):
     glyphs = &quot;bars&quot;
+    needs = &quot;spotify&quot;
     def __init__(self):
-        self.state, self.vol, self.track, self.artist = &quot;?&quot;, 0, &quot;&quot;, &quot;&quot;
-        self.toast, self.toast_until, self.last = &quot;&quot;, 0, 0
+        self.toast, self.toast_until = &quot;&quot;, 0
         self.hint_until = time.time() + 5
         self.levels = [0.0] * 20
-        self.refresh()
+        Cache.spotify_t = 0                       # fresh read on entry
+    @property
+    def state(self): return Cache.spotify[0]
     def meter(self):
         &quot;&quot;&quot;Animated 20-band sound profile: bass-heavy, with a ~118 bpm pulse. Flat when paused.&quot;&quot;&quot;
         import math, random
@@ -654,47 +703,61 @@ class SpotifyScreen(Screen):
             h = round(min(1.0, self.levels[i]) * 7)
             out += chr(h) if h else (&quot;_&quot; if not playing else &quot; &quot;)
         return out
-    def refresh(self):
-        self.state, self.vol, self.track, self.artist = spotify_status(); self.last = time.time()
-    def tick(self):
-        if time.time() - self.last &gt; 1.5: self.refresh()
     def flash(self, m): self.toast, self.toast_until = m, time.time() + 1.2
     def lines(self):
-        if self.state == &quot;closed&quot;:
+        state, vol, track, artist = Cache.spotify
+        if state == &quot;?&quot;:
+            return [NOTE + &quot; Spotify&quot;, &quot;&quot;, &quot;  loading...&quot;, &quot;&quot;]
+        if state == &quot;closed&quot;:
             return [NOTE + &quot; Spotify&quot;, &quot;Spotify is closed&quot;, &quot;click = open + play&quot;, &quot;left = back&quot;]
-        top = (&quot;&gt; Playing&quot; if self.state == &quot;playing&quot; else &quot;|| Paused&quot;).ljust(13) + f&quot;vol{round(self.vol / 5) * 5:3d}&quot;
+        top = (&quot;&gt; Playing&quot; if state == &quot;playing&quot; else &quot;|| Paused&quot;).ljust(13) + f&quot;vol{round(vol / 5) * 5:3d}&quot;
         now = time.time()
         if now &lt; self.toast_until: foot = self.toast
         elif now &lt; self.hint_until: foot = &quot;&lt;&gt;skip ^v vol o=play&quot;
         else: foot = self.meter()
-        return [top, marquee(self.track), self.artist[:20], foot]
+        return [top, marquee(track), artist[:20], foot]
+    def setvol(self, delta):
+        state, vol, track, artist = Cache.spotify
+        new = max(0, min(100, round(vol / 5) * 5 + delta))
+        Cache.spotify = (state, new, track, artist); Cache.spotify_t = time.time() + 1.5   # show now, re-read later
+        do(lambda: osa(f&#x27;tell application &quot;Spotify&quot; to set sound volume to {new}&#x27;))
+        self.flash(f&quot;volume {new}&quot;)
     def key(self, k, deck):
-        if self.state == &quot;closed&quot; and k == &quot;C&quot;:
-            osa(&#x27;tell application &quot;Spotify&quot; to play&#x27;); self.flash(&quot;opening Spotify...&quot;)
-        elif k == &quot;C&quot;: spotify(&quot;toggle&quot;); self.flash(&quot;play / pause&quot;)
-        elif k == &quot;R&quot;: spotify(&quot;next&quot;); self.flash(&quot;next &gt;&gt;&quot;)
-        elif k == &quot;L&quot;: spotify(&quot;prev&quot;); self.flash(&quot;&lt;&lt; previous&quot;)
-        elif k == &quot;U&quot;: spotify(&quot;up&quot;); self.flash(&quot;volume +&quot;)
-        elif k == &quot;D&quot;: spotify(&quot;down&quot;); self.flash(&quot;volume -&quot;)
-        self.last = time.time() - 1.1   # refresh soon
+        state, vol, track, artist = Cache.spotify
+        if state == &quot;closed&quot; and k == &quot;C&quot;:
+            do(lambda: osa(&#x27;tell application &quot;Spotify&quot; to play&#x27;)); self.flash(&quot;opening Spotify...&quot;)
+        elif k == &quot;C&quot;:
+            Cache.spotify = (&quot;paused&quot; if state == &quot;playing&quot; else &quot;playing&quot;, vol, track, artist)
+            Cache.spotify_t = time.time() + 0.6
+            do(lambda: spotify(&quot;toggle&quot;)); self.flash(&quot;play / pause&quot;)
+        elif k == &quot;R&quot;: do(lambda: spotify(&quot;next&quot;)); self.flash(&quot;next &gt;&gt;&quot;); Cache.spotify_t = time.time() - 0.4
+        elif k == &quot;L&quot;: do(lambda: spotify(&quot;prev&quot;)); self.flash(&quot;&lt;&lt; previous&quot;); Cache.spotify_t = time.time() - 0.4
+        elif k == &quot;U&quot;: self.setvol(+5)
+        elif k == &quot;D&quot;: self.setvol(-5)
 
 
 class AppsScreen(ListScreen):
     title = &quot;# Switch app&quot;
+    needs = &quot;apps&quot;
     def __init__(self):
-        super().__init__(); self.apps = running_apps(); self.toast_until = 0; self.last = time.time()
-    def items(self): return [ascii20(a[0], 18) + (&quot; *&quot; if a[2] else &quot;&quot;) for a in self.apps]
-    def header(self): return &quot;Switched!&quot; if time.time() &lt; self.toast_until else self.title
-    def tick(self):
-        if time.time() - self.last &gt; 4:
-            cur = self.apps[self.i][0] if self.apps else None
-            self.apps = running_apps(); self.last = time.time()
-            names = [a[0] for a in self.apps]
+        super().__init__(); self.toast_until = 0; Cache.apps_t = 0
+        self.apps = Cache.apps or []
+    def items(self):
+        if Cache.apps is not None and Cache.apps is not self.apps:      # new list arrived: keep the cursor on the same app
+            cur = self.apps[self.i][0] if self.apps and self.i &lt; len(self.apps) else None
+            self.apps = Cache.apps
+            names = [x[0] for x in self.apps]
             if cur in names: self.i = names.index(cur)
+        return [ascii20(x[0], 18) + (&quot; *&quot; if x[2] else &quot;&quot;) for x in self.apps]
+    def lines(self):
+        if not self.apps and Cache.apps is None: return [self.title, &quot;&quot;, &quot;  loading...&quot;, &quot;&quot;]
+        return super().lines()
+    def header(self): return &quot;Switched!&quot; if time.time() &lt; self.toast_until else self.title
     def select(self, i, deck):
         name, bid, _ = self.apps[i]
-        subprocess.run([&quot;open&quot;, &quot;-b&quot;, bid] if bid and bid != &quot;missing value&quot; else [&quot;open&quot;, &quot;-a&quot;, name], capture_output=True)
-        self.toast_until = time.time() + 1.2; self.last = 0
+        do(lambda: subprocess.run([&quot;open&quot;, &quot;-b&quot;, bid] if bid else [&quot;open&quot;, &quot;-a&quot;, name], capture_output=True))
+        self.apps = [(n, b, n == name) for n, b, _ in self.apps]
+        self.toast_until = time.time() + 1.2; Cache.apps_t = time.time() - 2
 
 
 class LevelScreen(Screen):
@@ -705,7 +768,7 @@ class LevelScreen(Screen):
     def hint(self): return &quot;^v adjust  &lt; back&quot;
     def lines(self):
         v = self.get()
-        return [self.name().ljust(15) + f&quot;{round(v * 100):3d}%&quot;[-4:].rjust(5), bar(v), &quot;&quot;, self.hint()]
+        return [self.name().ljust(15) + f&quot;{round(v * 100):4d}%&quot;, bar(v), &quot;&quot;, self.hint()]
     def key(self, k, deck):
         snap = lambda v: max(0.0, min(1.0, round(v * 20) / 20))     # clean 5% steps
         if k in &quot;UR&quot;: self.set(snap(snap(self.get()) + self.step))
@@ -716,25 +779,32 @@ class LevelScreen(Screen):
 
 
 class BrightnessScreen(LevelScreen):
-    def __init__(self): self.saved = None
+    def __init__(self): self.saved = None; self.v = DISPLAY.get()
     def name(self): return SUN + &quot; Brightness&quot;
-    def get(self): return DISPLAY.get()
-    def set(self, v): DISPLAY.set(v)
+    def get(self): return self.v
+    def set(self, v):
+        self.v = max(0.0, min(1.0, v)); DISPLAY.set(self.v)
     def hint(self): return &quot;^v adjust o=dim/max&quot;
     def click(self):
-        if self.get() &gt; 0.25: self.saved = self.get(); self.set(0.15)
+        if self.v &gt; 0.25: self.saved = self.v; self.set(0.15)
         else: self.set(self.saved or 1.0)
 
 
 class VolumeScreen(LevelScreen):
-    def name(self):
-        return SPK + (&quot; Volume (muted)&quot; if volume_get()[1] else &quot; Volume&quot;)
-    def get(self): return volume_get()[0] / 100
-    def set(self, v): osa(f&quot;set volume output volume {round(max(0, min(1, v)) * 100)}&quot;)
+    needs = &quot;volume&quot;
+    def __init__(self): Cache.volume_t = 0             # poller fetches the real value right away
+    def get(self): return Cache.volume[0] / 100
+    def set(self, v):
+        new = round(max(0, min(1, v)) * 100)
+        Cache.volume = (new, False); Cache.volume_t = time.time() + 1.5
+        do(lambda: osa(f&quot;set volume output volume {new} without output muted&quot;))
     def hint(self): return &quot;^v adjust  o=mute&quot;
-    def click(self): osa(&quot;set volume output muted (not (output muted of (get volume settings)))&quot;)
+    def click(self):
+        v, m = Cache.volume
+        Cache.volume = (v, not m); Cache.volume_t = time.time() + 1.5
+        do(lambda: osa(f&quot;set volume output muted {&#x27;false&#x27; if m else &#x27;true&#x27;}&quot;))
     def lines(self):
-        v, muted = volume_get()
+        v, muted = Cache.volume
         return [(SPK + (&quot; Muted&quot; if muted else &quot; Volume&quot;)).ljust(15) + f&quot;{v:4d}%&quot;, bar(0 if muted else v / 100), &quot;&quot;, self.hint()]
 
 
@@ -788,10 +858,10 @@ class QuickScreen(ListScreen):
         msg = &quot;Done&quot;
         if i == 0: subprocess.Popen([&quot;open&quot;, &quot;-a&quot;, &quot;Mission Control&quot;])
         elif i == 1:
-            osa(&#x27;tell application &quot;System Events&quot; to tell appearance preferences to set dark mode to not dark mode&#x27;); msg = &quot;Dark mode toggled&quot;
+            do(lambda: osa(&#x27;tell application &quot;System Events&quot; to tell appearance preferences to set dark mode to not dark mode&#x27;)); msg = &quot;Dark mode toggled&quot;
         elif i == 2:
             path = os.path.expanduser(time.strftime(&quot;~/Desktop/Deck shot %Y-%m-%d %H.%M.%S.png&quot;))
-            subprocess.run([&quot;screencapture&quot;, &quot;-x&quot;, path]); msg = &quot;Saved to Desktop&quot; if os.path.exists(path) else &quot;Allow Screen Rec.&quot;
+            do(lambda: subprocess.run([&quot;screencapture&quot;, &quot;-x&quot;, path])); msg = &quot;Saved to Desktop&quot;
         elif i == 3:
             if self.caf: self.caf.terminate(); self.caf = None; msg = &quot;Normal sleep&quot;
             else: self.caf = subprocess.Popen([&quot;caffeinate&quot;, &quot;-d&quot;]); msg = &quot;Mac stays awake&quot;
@@ -859,6 +929,7 @@ class Deck:
 
     def render(self, force=False):
         scr = self.stack[-1]
+        Cache.want = {getattr(scr, &quot;needs&quot;, None)} - {None}
         self.load_glyphs(getattr(scr, &quot;glyphs&quot;, &quot;icons&quot;) if time.time() &gt;= self.banner_until else &quot;icons&quot;)
         try:
             scr.tick(); rows = scr.lines()
@@ -890,8 +961,8 @@ class Deck:
             if not self.keymap: self.push(KeypadSetup())      # first ever press: start setup
             return
         if time.time() &lt; self.banner_until: self.banner_until = 0; return
-        hot = {&quot;1&quot;: lambda: spotify(&quot;toggle&quot;), &quot;3&quot;: lambda: spotify(&quot;next&quot;),
-               &quot;7&quot;: lambda: osa(&quot;set volume output muted (not (output muted of (get volume settings)))&quot;),
+        hot = {&quot;1&quot;: lambda: do(lambda: spotify(&quot;toggle&quot;)), &quot;3&quot;: lambda: do(lambda: spotify(&quot;next&quot;)),
+               &quot;7&quot;: lambda: do(lambda: osa(&quot;set volume output muted (not (output muted of (get volume settings)))&quot;)),
                &quot;9&quot;: lambda: subprocess.Popen([&quot;open&quot;, &quot;-a&quot;, &quot;Mission Control&quot;]),
                &quot;0&quot;: lambda: self.push(SpotifyScreen()) if not isinstance(scr, SpotifyScreen) else None}
         if key in hot: hot[key](); return
@@ -964,6 +1035,8 @@ def prime_permissions():
 
 def main():
     threading.Thread(target=prime_permissions, daemon=True).start()
+    threading.Thread(target=_worker, daemon=True).start()
+    threading.Thread(target=_poller, daemon=True).start()
     while True:
         port = find_port()
         if not port:
