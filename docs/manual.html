@@ -1,0 +1,1007 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Decky manual</title>
+<style>
+@page { size: A4; margin: 16mm 14mm; }
+body { font: 11pt/1.5 Helvetica, Arial, sans-serif; color: #17211d; }
+h1 { font-size: 34pt; margin: 0 0 4px; letter-spacing: -.5px; }
+h2 { font-size: 17pt; margin: 26px 0 8px; border-bottom: 2px solid #17211d; padding-bottom: 4px; page-break-after: avoid; }
+h3 { font-size: 12.5pt; margin: 18px 0 6px; page-break-after: avoid; }
+h3.file { font-family: Menlo, monospace; font-size: 10.5pt; background: #eef2f0; padding: 6px 8px; border-radius: 4px; }
+p, li { max-width: 170mm; }
+.lede { font-size: 13pt; color: #3d4a45; }
+table { border-collapse: collapse; width: 100%; margin: 6px 0 12px; font-size: 10pt; page-break-inside: avoid; }
+th, td { text-align: left; border-bottom: 1px solid #cbd5d1; padding: 5px 6px; vertical-align: top; }
+th { background: #eef2f0; }
+td code, li code, p code { font-family: Menlo, monospace; font-size: 9.5pt; background: #eef2f0; padding: 0 3px; border-radius: 3px; }
+pre { font: 7.4pt/1.35 Menlo, monospace; white-space: pre-wrap; word-break: break-word; background: #fafbfa; border: 1px solid #dfe5e2; padding: 8px; border-radius: 4px; }
+.fig { width: 100%; height: auto; border: 1px solid #dfe5e2; border-radius: 6px; page-break-inside: avoid; }
+.cover { height: 245mm; display: flex; flex-direction: column; justify-content: center; page-break-after: always; }
+.lcd { font: 15pt/1.25 Menlo, monospace; background: #1f3fb0; color: #d7e3ff; padding: 14px 18px; border-radius: 6px; width: max-content; margin: 22px 0; white-space: pre; }
+.break { page-break-before: always; }
+.note { background: #fff6ef; border-left: 4px solid #cf5a22; padding: 8px 12px; font-size: 10pt; }
+</style></head><body>
+
+<section class="cover">
+  <h1>Decky</h1>
+  <p class="lede">An Arduino Uno, a 20&times;4 LCD, a joystick and a keypad that control your Mac:
+  Spotify, app switching, brightness, volume, notifications and quick actions.</p>
+  <div class="lcd">DECKY          04:40
+&gt;&#9834; Spotify
+ # Apps
+ &#9788; Brightness</div>
+  <p>Contents: 1 Parts &middot; 2 Wiring &middot; 3 How it works &middot; 4 Install &middot; 5 Controls &middot; 6 Troubleshooting &middot; 7 Source code</p>
+</section>
+
+<h2>1. Parts</h2>
+<table><tr><th>Part</th><th>Notes</th></tr>
+<tr><td>Arduino Uno (or clone with CH340 USB)</td><td>Powered by the Mac's USB, which also carries data</td></tr>
+<tr><td>20&times;4 character LCD with PCF8574 I2C backpack</td><td>Address 0x27 or 0x3F, found automatically. Blue knob = contrast</td></tr>
+<tr><td>Analog joystick module (VRx, VRy, SW)</td><td>Main control</td></tr>
+<tr><td>3&times;4 membrane keypad (7-pin ribbon)</td><td>Optional. Wire order does not matter: Decky learns it</td></tr>
+<tr><td>Breadboard + jumper wires</td><td>Male-to-male and male-to-female</td></tr></table>
+
+<h2>2. Wiring</h2>
+<p>Unplug USB before wiring. Run the Uno's <b>5V</b> to the breadboard red (+) rail and <b>GND</b> to the blue (&minus;) rail; every +5V / GND tag below goes to those rails.
+Long breadboards split their rails in the middle; bridge the gap if a part sits on the far half.</p>
+<div class="fig" style="border:none"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 770" role="img" aria-label="Wiring schematic: Uno in the centre, keypad top right, joystick bottom centre, LCD bottom right."><style>text{font-family:Menlo,monospace;fill:#17211d}.lbl{font-size:10px;fill:#5a6862}.title{font-family:Helvetica,Arial,sans-serif;font-size:14px;font-weight:600}.sub{font-size:10.5px;fill:#5a6862}.box{fill:#fff;stroke:#cbd5d1;stroke-width:1.5}.wire{fill:none;stroke-width:3;stroke-linejoin:round;stroke-linecap:round}.pin{fill:#17211d}.tag text{font-size:9.5px;font-weight:600;fill:#fff}.uno-ink{fill:#e6f3f8 !important}</style>
+
+      <!-- ========== POWER (Uno to rails) ========== -->
+      <g class="part power">
+        <path class="wire" stroke="#d01f37" d="M460,523 V552 H402"/>
+        <path class="wire" stroke="#33434d" d="M480,523 V566 H402"/>
+        <g class="tag"><rect x="318" y="544" width="84" height="16" rx="8" fill="#d01f37"/><text x="360" y="555.5" text-anchor="middle">+ RAIL (red)</text></g>
+        <g class="tag"><rect x="318" y="558" width="84" height="16" rx="8" fill="#33434d"/><text x="360" y="569.5" text-anchor="middle" style="fill:#fbfcfb">− RAIL (blue)</text></g>
+      </g>
+
+      <!-- ========== UNO ========== -->
+      <g>
+        <rect x="282" y="330" width="34" height="52" rx="3" fill="#9aa4aa"/>
+        <rect x="286" y="440" width="26" height="40" rx="3" fill="#2a2f33"/>
+        <rect x="300" y="288" width="400" height="244" rx="12" fill="#1d6a86"/>
+        <rect x="318" y="294" width="374" height="16" rx="2" fill="#0e3b4b"/>
+        <rect x="390" y="510" width="282" height="16" rx="2" fill="#0e3b4b"/>
+        <g fill="#d9dde0">
+          <rect x="325" y="297" width="10" height="10"/><rect x="345" y="297" width="10" height="10"/><rect x="365" y="297" width="10" height="10"/><rect x="385" y="297" width="10" height="10"/>
+          <rect x="405" y="297" width="10" height="10"/><rect x="425" y="297" width="10" height="10"/><rect x="445" y="297" width="10" height="10"/><rect x="465" y="297" width="10" height="10"/>
+          <rect x="485" y="297" width="10" height="10"/><rect x="505" y="297" width="10" height="10"/><rect x="535" y="297" width="10" height="10"/><rect x="555" y="297" width="10" height="10"/>
+          <rect x="575" y="297" width="10" height="10"/><rect x="595" y="297" width="10" height="10"/><rect x="615" y="297" width="10" height="10"/><rect x="635" y="297" width="10" height="10"/>
+          <rect x="655" y="297" width="10" height="10"/><rect x="675" y="297" width="10" height="10"/>
+          <rect x="395" y="513" width="10" height="10"/><rect x="415" y="513" width="10" height="10"/><rect x="435" y="513" width="10" height="10"/><rect x="455" y="513" width="10" height="10"/>
+          <rect x="475" y="513" width="10" height="10"/><rect x="495" y="513" width="10" height="10"/><rect x="515" y="513" width="10" height="10"/>
+          <rect x="555" y="513" width="10" height="10"/><rect x="575" y="513" width="10" height="10"/><rect x="595" y="513" width="10" height="10"/>
+          <rect x="615" y="513" width="10" height="10"/><rect x="635" y="513" width="10" height="10"/><rect x="655" y="513" width="10" height="10"/>
+        </g>
+        <g class="lbl" style="font-size:9.5px">
+          <text class="uno-ink" x="330" y="316" text-anchor="end" transform="rotate(-90 330 316)" dy="3">SCL</text>
+          <text class="uno-ink" x="350" y="316" text-anchor="end" transform="rotate(-90 350 316)" dy="3">SDA</text>
+          <text class="uno-ink" x="370" y="316" text-anchor="end" transform="rotate(-90 370 316)" dy="3">AREF</text>
+          <text class="uno-ink" x="390" y="316" text-anchor="end" transform="rotate(-90 390 316)" dy="3">GND</text>
+          <text class="uno-ink" x="410" y="316" text-anchor="end" transform="rotate(-90 410 316)" dy="3">D13</text>
+          <text class="uno-ink" x="430" y="316" text-anchor="end" transform="rotate(-90 430 316)" dy="3">D12</text>
+          <text class="uno-ink" x="450" y="316" text-anchor="end" transform="rotate(-90 450 316)" dy="3">D11</text>
+          <text class="uno-ink" x="470" y="316" text-anchor="end" transform="rotate(-90 470 316)" dy="3">D10</text>
+          <text class="uno-ink" x="490" y="316" text-anchor="end" transform="rotate(-90 490 316)" dy="3">D9</text>
+          <text class="uno-ink" x="510" y="316" text-anchor="end" transform="rotate(-90 510 316)" dy="3">D8</text>
+          <text class="uno-ink" x="540" y="316" text-anchor="end" transform="rotate(-90 540 316)" dy="3">D7</text>
+          <text class="uno-ink" x="560" y="316" text-anchor="end" transform="rotate(-90 560 316)" dy="3">D6</text>
+          <text class="uno-ink" x="580" y="316" text-anchor="end" transform="rotate(-90 580 316)" dy="3">D5</text>
+          <text class="uno-ink" x="600" y="316" text-anchor="end" transform="rotate(-90 600 316)" dy="3">D4</text>
+          <text class="uno-ink" x="620" y="316" text-anchor="end" transform="rotate(-90 620 316)" dy="3">D3</text>
+          <text class="uno-ink" x="640" y="316" text-anchor="end" transform="rotate(-90 640 316)" dy="3">D2</text>
+          <text class="uno-ink" x="660" y="316" text-anchor="end" transform="rotate(-90 660 316)" dy="3">D1</text>
+          <text class="uno-ink" x="680" y="316" text-anchor="end" transform="rotate(-90 680 316)" dy="3">D0</text>
+          <text class="uno-ink" x="400" y="505" text-anchor="start" transform="rotate(-90 400 505)" dy="3">IOREF</text>
+          <text class="uno-ink" x="420" y="505" text-anchor="start" transform="rotate(-90 420 505)" dy="3">RESET</text>
+          <text class="uno-ink" x="440" y="505" text-anchor="start" transform="rotate(-90 440 505)" dy="3">3.3V</text>
+          <text class="uno-ink" x="460" y="505" text-anchor="start" transform="rotate(-90 460 505)" dy="3">5V</text>
+          <text class="uno-ink" x="480" y="505" text-anchor="start" transform="rotate(-90 480 505)" dy="3">GND</text>
+          <text class="uno-ink" x="500" y="505" text-anchor="start" transform="rotate(-90 500 505)" dy="3">GND</text>
+          <text class="uno-ink" x="520" y="505" text-anchor="start" transform="rotate(-90 520 505)" dy="3">VIN</text>
+          <text class="uno-ink" x="560" y="505" text-anchor="start" transform="rotate(-90 560 505)" dy="3">A0</text>
+          <text class="uno-ink" x="580" y="505" text-anchor="start" transform="rotate(-90 580 505)" dy="3">A1</text>
+          <text class="uno-ink" x="600" y="505" text-anchor="start" transform="rotate(-90 600 505)" dy="3">A2</text>
+          <text class="uno-ink" x="620" y="505" text-anchor="start" transform="rotate(-90 620 505)" dy="3">A3</text>
+          <text class="uno-ink" x="640" y="505" text-anchor="start" transform="rotate(-90 640 505)" dy="3">A4</text>
+          <text class="uno-ink" x="660" y="505" text-anchor="start" transform="rotate(-90 660 505)" dy="3">A5</text>
+        </g>
+        <rect x="455" y="392" width="120" height="44" rx="3" fill="#1c2226"/>
+        <text class="uno-ink" x="515" y="419" text-anchor="middle" style="font-family:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;font-size:13px;font-weight:700;letter-spacing:.12em">UNO</text>
+        <text class="uno-ink" x="335" y="360" style="font-size:9px">USB</text>
+      </g>
+
+      <!-- ========== KEYPAD ========== -->
+      <g class="part keypad">
+        <path class="wire" stroke="#6a4fd8" d="M705,200 V215 H510 V297"/>
+        <path class="wire" stroke="#6a4fd8" d="M725,200 V225 H540 V297"/>
+        <path class="wire" stroke="#6a4fd8" d="M745,200 V235 H560 V297"/>
+        <path class="wire" stroke="#6a4fd8" d="M765,200 V245 H580 V297"/>
+        <path class="wire" stroke="#6a4fd8" d="M785,200 V255 H600 V297"/>
+        <path class="wire" stroke="#6a4fd8" d="M805,200 V265 H620 V297"/>
+        <path class="wire" stroke="#6a4fd8" d="M825,200 V275 H640 V297"/>
+        <text class="title" x="870" y="40">Keypad</text>
+        <text class="sub" x="870" y="56">pins 1→7</text>
+        <text class="sub" x="870" y="70">left to right</text>
+        <rect class="box" x="690" y="20" width="160" height="180" rx="8"/>
+        <g font-size="12" text-anchor="middle">
+          <g fill="#3d7fd8">
+            <rect x="712" y="32" width="34" height="26" rx="4"/><rect x="753" y="32" width="34" height="26" rx="4"/><rect x="794" y="32" width="34" height="26" rx="4"/>
+            <rect x="712" y="64" width="34" height="26" rx="4"/><rect x="753" y="64" width="34" height="26" rx="4"/><rect x="794" y="64" width="34" height="26" rx="4"/>
+            <rect x="712" y="96" width="34" height="26" rx="4"/><rect x="753" y="96" width="34" height="26" rx="4"/><rect x="794" y="96" width="34" height="26" rx="4"/>
+            <rect x="753" y="128" width="34" height="26" rx="4"/>
+          </g>
+          <g fill="#d6403a"><rect x="712" y="128" width="34" height="26" rx="4"/><rect x="794" y="128" width="34" height="26" rx="4"/></g>
+          <g style="fill:#fff;font-family:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;font-weight:600">
+            <text x="729" y="49">1</text><text x="770" y="49">2</text><text x="811" y="49">3</text>
+            <text x="729" y="81">4</text><text x="770" y="81">5</text><text x="811" y="81">6</text>
+            <text x="729" y="113">7</text><text x="770" y="113">8</text><text x="811" y="113">9</text>
+            <text x="729" y="145">*</text><text x="770" y="145">0</text><text x="811" y="145">#</text>
+          </g>
+        </g>
+        <g class="lbl" text-anchor="middle">
+          <text x="705" y="190">1</text><text x="725" y="190">2</text><text x="745" y="190">3</text><text x="765" y="190">4</text><text x="785" y="190">5</text><text x="805" y="190">6</text><text x="825" y="190">7</text>
+        </g>
+        <g><circle class="pin" cx="705" cy="200" r="3.5"/><circle class="pin" cx="725" cy="200" r="3.5"/><circle class="pin" cx="745" cy="200" r="3.5"/><circle class="pin" cx="765" cy="200" r="3.5"/><circle class="pin" cx="785" cy="200" r="3.5"/><circle class="pin" cx="805" cy="200" r="3.5"/><circle class="pin" cx="825" cy="200" r="3.5"/></g>
+      </g>
+
+      <!-- ========== JOYSTICK ========== -->
+      <g class="part joy">
+        <path class="wire" stroke="#b07a00" d="M450,595 H560 V523"/>
+        <path class="wire" stroke="#b07a00" d="M450,615 H580 V523"/>
+        <path class="wire" stroke="#b07a00" d="M450,635 H600 V523"/>
+        <text class="title" x="300" y="722">Joystick</text>
+        <rect class="box" x="300" y="582" width="150" height="118" rx="6"/>
+        <circle cx="352" cy="641" r="36" fill="#2b3135"/><circle cx="352" cy="641" r="22" fill="#40484d"/>
+        <text class="lbl" x="443" y="598.5" text-anchor="end" style="fill:#17211d">VRx</text>
+        <text class="lbl" x="443" y="618.5" text-anchor="end" style="fill:#17211d">VRy</text>
+        <text class="lbl" x="443" y="638.5" text-anchor="end" style="fill:#17211d">SW</text>
+        <text class="lbl" x="443" y="658.5" text-anchor="end" style="fill:#17211d">+5V</text>
+        <text class="lbl" x="443" y="678.5" text-anchor="end" style="fill:#17211d">GND</text>
+        <path class="wire" stroke="#d01f37" d="M450,655 H470"/><path class="wire" stroke="#33434d" d="M450,675 H470"/>
+        <circle class="pin" cx="450" cy="595" r="3.5"/><circle class="pin" cx="450" cy="615" r="3.5"/><circle class="pin" cx="450" cy="635" r="3.5"/><circle class="pin" cx="450" cy="655" r="3.5"/><circle class="pin" cx="450" cy="675" r="3.5"/>
+        <g class="tag"><rect x="470" y="647.5" width="34" height="15" rx="7.5" fill="#d01f37"/><text x="487" y="658.5" text-anchor="middle">+5V</text></g>
+        <g class="tag"><rect x="470" y="667.5" width="34" height="15" rx="7.5" fill="#33434d"/><text x="487" y="678.5" text-anchor="middle" style="fill:#fbfcfb">GND</text></g>
+      </g>
+
+      <!-- ========== LCD + I2C BACKPACK ========== -->
+      <g class="part lcd">
+        <path class="wire" stroke="#2463d6" d="M660,523 V595 H720"/>
+        <path class="wire" stroke="#2463d6" d="M640,523 V615 H720"/>
+        <text class="title" x="720" y="550">20×4 LCD + I2C backpack</text>
+        <rect class="box" x="720" y="562" width="260" height="150" rx="6"/>
+        <rect x="786" y="584" width="178" height="106" rx="3" fill="#1f3fb0"/>
+        <g style="font-size:11px;fill:#d7e3ff">
+          <text x="798" y="606">DECKY      04:40</text>
+          <text x="798" y="626">&gt; Spotify</text>
+          <text x="798" y="646">  Apps</text>
+          <text x="798" y="666">  Brightness</text>
+        </g>
+        <text class="lbl" x="728" y="598.5" style="fill:#17211d">SCL</text>
+        <text class="lbl" x="728" y="618.5" style="fill:#17211d">SDA</text>
+        <text class="lbl" x="728" y="638.5" style="fill:#17211d">VCC</text>
+        <text class="lbl" x="728" y="658.5" style="fill:#17211d">GND</text>
+        <path class="wire" stroke="#d01f37" d="M720,635 H704"/><path class="wire" stroke="#33434d" d="M720,655 H704"/>
+        <circle class="pin" cx="720" cy="595" r="3.5"/><circle class="pin" cx="720" cy="615" r="3.5"/><circle class="pin" cx="720" cy="635" r="3.5"/><circle class="pin" cx="720" cy="655" r="3.5"/>
+        <g class="tag"><rect x="670" y="627.5" width="34" height="15" rx="7.5" fill="#d01f37"/><text x="687" y="638.5" text-anchor="middle">+5V</text></g>
+        <g class="tag"><rect x="670" y="647.5" width="34" height="15" rx="7.5" fill="#33434d"/><text x="687" y="658.5" text-anchor="middle" style="fill:#fbfcfb">GND</text></g>
+        <text class="sub" x="728" y="706">blue knob on back = contrast</text>
+      </g>
+
+      <!-- rail note -->
+      <text class="sub" x="30" y="528" style="fill:#17211d;font-weight:600">Power: USB from Mac → Uno</text>
+      <text class="sub" x="30" y="544">Uno 5V/GND → breadboard rails</text>
+      <text class="sub" x="30" y="560">Every <tspan style="fill:#d01f37;font-weight:600">+5V</tspan> tag → red (+) rail</text>
+      <text class="sub" x="30" y="576">Every <tspan style="fill:#33434d;font-weight:600">GND</tspan> tag → blue (−) rail</text>
+    </svg></div>
+<table><tr><th>Part</th><th>Pin</th><th>Uno</th></tr>
+<tr><td rowspan="4">LCD backpack</td><td>GND</td><td>&minus; rail</td></tr><tr><td>VCC</td><td>+ rail</td></tr><tr><td>SDA</td><td>A4</td></tr><tr><td>SCL</td><td>A5</td></tr>
+<tr><td rowspan="5">Joystick</td><td>GND</td><td>&minus; rail</td></tr><tr><td>+5V</td><td>+ rail</td></tr><tr><td>VRx</td><td>A0</td></tr><tr><td>VRy</td><td>A1</td></tr><tr><td>SW</td><td>A2</td></tr>
+<tr><td>Keypad</td><td>7 ribbon pins</td><td>D8, D7, D6, D5, D4, D3, D2 (any order works)</td></tr></table>
+<p class="note">Power budget is about 35&nbsp;mA total, well within USB's 500&nbsp;mA. D9&ndash;D13 and A3 are free for future parts.</p>
+
+<h2 class="break">3. How it works</h2>
+<p>The Uno is a <b>thin client</b>: it only draws the four lines the Mac sends and reports joystick and keypad input.
+Every menu, screen and action lives in <code>mac/deck.py</code>, so changing Decky never needs a reflash.</p>
+
+<svg viewBox="0 0 860 300" xmlns="http://www.w3.org/2000/svg" class="fig">
+ <style>.b{fill:#fff;stroke:#9fb0aa;stroke-width:1.5}.t{font:600 14px Helvetica,Arial,sans-serif;fill:#17211d}.s{font:11px Menlo,monospace;fill:#5a6862}.a{stroke:#2463d6;stroke-width:2.5;fill:none;marker-end:url(#h)}.r{stroke:#cf5a22;stroke-width:2.5;fill:none;marker-end:url(#h2)}</style>
+ <defs><marker id="h" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 z" fill="#2463d6"/></marker>
+ <marker id="h2" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 z" fill="#cf5a22"/></marker></defs>
+ <rect class="b" x="10" y="40" width="150" height="90" rx="8"/><text class="t" x="24" y="66">Joystick</text><text class="s" x="24" y="86">A0 A1 A2</text>
+ <rect class="b" x="10" y="160" width="150" height="90" rx="8"/><text class="t" x="24" y="186">3x4 Keypad</text><text class="s" x="24" y="206">D2..D8, any order</text><text class="s" x="24" y="222">(learned once)</text>
+ <rect class="b" x="230" y="70" width="190" height="150" rx="8" style="fill:#e6f3f8"/><text class="t" x="246" y="96">Arduino Uno</text><text class="s" x="246" y="118">deck.ino</text><text class="s" x="246" y="140">draws lines</text><text class="s" x="246" y="158">reports input</text><text class="s" x="246" y="176">no menus/logic</text>
+ <rect class="b" x="230" y="250" width="190" height="42" rx="8"/><text class="t" x="246" y="276">20x4 LCD (I2C)</text>
+ <rect class="b" x="500" y="70" width="170" height="150" rx="8" style="fill:#fff6ef"/><text class="t" x="516" y="96">Mac: deck.py</text><text class="s" x="516" y="118">menus, screens</text><text class="s" x="516" y="136">key handling</text><text class="s" x="516" y="154">renders 4 lines</text><text class="s" x="516" y="172">auto-reconnect</text>
+ <rect class="b" x="720" y="20" width="130" height="260" rx="8"/><text class="t" x="732" y="44">macOS</text>
+ <text class="s" x="732" y="70">Spotify</text><text class="s" x="732" y="84">(AppleScript)</text>
+ <text class="s" x="732" y="110">System Events</text><text class="s" x="732" y="124">(apps, dark)</text>
+ <text class="s" x="732" y="150">DisplayServices</text><text class="s" x="732" y="164">(brightness)</text>
+ <text class="s" x="732" y="190">volume</text>
+ <text class="s" x="732" y="216">notification DB</text>
+ <text class="s" x="732" y="244">screencapture</text><text class="s" x="732" y="258">caffeinate, pmset</text>
+ <path class="a" d="M160,85 H230"/><path class="a" d="M160,205 H195 V185 H230"/>
+ <path class="a" d="M420,120 H500"/><text class="s" x="428" y="112">@K / @X / @A</text>
+ <path class="r" d="M500,170 H420"/><text class="s" x="428" y="190">@L / @G / @P</text>
+ <path class="r" d="M325,220 V250"/>
+ <path class="a" d="M670,145 H720"/>
+ <text class="s" x="440" y="245">USB serial 9600</text>
+</svg>
+<h3>Serial protocol (9600 baud, one message per line)</h3>
+<table><tr><th>Direction</th><th>Message</th><th>Meaning</th></tr>
+<tr><td>Mac &rarr; Uno</td><td><code>@L&lt;row&gt;&lt;text&gt;</code></td><td>Draw row 0&ndash;3 (padded to 20 chars). Bytes 1&ndash;7 = custom glyphs, 255 = full block</td></tr>
+<tr><td>Mac &rarr; Uno</td><td><code>@G&lt;slot&gt;&lt;16 hex&gt;</code></td><td>Redefine custom glyph 1&ndash;7 (icons vs sound-meter bars)</td></tr>
+<tr><td>Mac &rarr; Uno</td><td><code>@P</code></td><td>Heartbeat. No Mac data for 7 s &rArr; Uno shows "waiting for Mac"</td></tr>
+<tr><td>Uno &rarr; Mac</td><td><code>@HELLO</code></td><td>Booted / waiting: Mac redraws everything</td></tr>
+<tr><td>Uno &rarr; Mac</td><td><code>@K&lt;U|D|L|R|C|H&gt;</code></td><td>Joystick: one event per push; C = click, H = hold 0.7 s</td></tr>
+<tr><td>Uno &rarr; Mac</td><td><code>@X&lt;a&gt;&lt;b&gt;</code></td><td>Keypad press joining pins Da and Db; mapped to keys via <code>keypad.json</code></td></tr>
+<tr><td>Uno &rarr; Mac</td><td><code>@A</code></td><td>Alive every 4 s. Silence for 15 s &rArr; Mac reconnects</td></tr></table>
+
+<h2>4. Install</h2>
+<ol>
+<li><b>Flash the firmware.</b> Arduino IDE: install the <i>LiquidCrystal I2C</i> library, open <code>firmware/deck/deck.ino</code>, upload. Or with arduino-cli:<br>
+<code>arduino-cli lib install "LiquidCrystal I2C"</code><br><code>arduino-cli compile -u -b arduino:avr:uno -p /dev/cu.usbserial-XXXX firmware/deck</code></li>
+<li><b>Run the Mac side</b> (Python 3, standard library only): <code>python3 mac/deck.py</code></li>
+<li><b>Start at login</b> (optional): <code>mac/install-autostart.sh</code> &nbsp;&middot;&nbsp; remove with <code>mac/install-autostart.sh remove</code></li>
+<li><b>Approve macOS prompts once</b>: "python3 wants to control System Events / Spotify" &rarr; OK.
+For notifications, add <code>/usr/bin/python3</code> under Privacy &amp; Security &rarr; Full Disk Access.</li>
+<li><b>Teach the keypad</b> (first key press, or Quick actions &rarr; Set up keypad): press 1 2 3 &hellip; * 0 # as the LCD asks. Saved to <code>mac/keypad.json</code>.</li>
+</ol>
+<p class="note">Close the Arduino IDE Serial Monitor while Decky runs, and stop Decky (<code>launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/local.decky.plist</code>) before flashing: only one program can hold the USB port.</p>
+
+<h2 class="break">5. Controls</h2>
+<h3>Joystick</h3>
+<table><tr><th>Move</th><th>Action</th></tr><tr><td>Up / Down</td><td>Move one step per push (return to centre for the next)</td></tr>
+<tr><td>Right or click</td><td>Open / select</td></tr><tr><td>Left</td><td>Back</td></tr><tr><td>Hold click 0.7 s</td><td>Home</td></tr></table>
+<h3>Keypad</h3>
+<table><tr><th>Key</th><th>Action</th><th>Key</th><th>Action</th><th>Key</th><th>Action</th></tr>
+<tr><td>1</td><td>Spotify play/pause (anywhere)</td><td>2</td><td>Up</td><td>3</td><td>Next track (anywhere)</td></tr>
+<tr><td>4</td><td>Left / back</td><td>5</td><td>Select</td><td>6</td><td>Right</td></tr>
+<tr><td>7</td><td>Mute Mac (anywhere)</td><td>8</td><td>Down</td><td>9</td><td>Mission Control (anywhere)</td></tr>
+<tr><td>*</td><td>Back</td><td>0</td><td>Open Spotify screen</td><td>#</td><td>Home</td></tr></table>
+<h3>Screens</h3>
+<table><tr><th>Screen</th><th>Up / Down</th><th>Left / Right</th><th>Click</th></tr>
+<tr><td>Spotify</td><td>Volume &plusmn;5%</td><td>Previous / next track</td><td>Play / pause (opens Spotify if closed)</td></tr>
+<tr><td>Apps</td><td>Move through open apps</td><td>Back</td><td>Switch to app</td></tr>
+<tr><td>Brightness</td><td>&plusmn;5%</td><td>Right = +5%</td><td>Dim / full</td></tr>
+<tr><td>Volume</td><td>&plusmn;5%</td><td>Right = +5%</td><td>Mute</td></tr>
+<tr><td>Notifications</td><td>Scroll</td><td>Back</td><td>Read full message</td></tr>
+<tr><td>Quick actions</td><td>Move</td><td>Back</td><td>Run: Mission Control, dark mode, screenshot, keep awake, sleep display, open Desktop, set up keypad</td></tr></table>
+<p>Spotify shows control hints for 5 seconds, then an animated sound meter on the bottom row (a visual effect; Spotify does not expose live audio levels). New notifications pop up as a banner on any screen.</p>
+
+<h2>6. Troubleshooting</h2>
+<table><tr><th>Symptom</th><th>Fix</th></tr>
+<tr><td>LCD backlight on, no text</td><td>Turn the blue contrast knob on the backpack</td></tr>
+<tr><td>Garbled characters</td><td>Unplug USB 5 s and replug; re-seat SDA (A4) and SCL (A5)</td></tr>
+<tr><td>"waiting for Mac..."</td><td>deck.py is not running, or another program holds the port</td></tr>
+<tr><td>Directions reversed</td><td>Set <code>INVERT_X</code> / <code>INVERT_Y</code> at the top of <code>mac/deck.py</code></td></tr>
+<tr><td>Some keypad keys dead</td><td>Push the jumpers fully into the ribbon socket; check all 7 reach D2&ndash;D8; redo keypad setup</td></tr>
+<tr><td>Notifications: "Needs Full Disk Access"</td><td>Add <code>/usr/bin/python3</code> in Privacy &amp; Security &rarr; Full Disk Access</td></tr>
+<tr><td>Anything else</td><td>Read <code>mac/deck.log</code> when running at login</td></tr></table>
+
+<h2 class="break">7. Source code</h2>
+<h3 class="file">firmware/deck/deck.ino</h3><pre><code>/*
+  DECKY — Uno firmware (thin client).
+  The Mac (deck.py) decides everything; the Uno just draws lines and reports input.
+
+  Mac -&gt; Uno:  &quot;@L&lt;row&gt;&lt;text&gt;&quot;  draw row 0-3 (text padded to 20)
+               &quot;@P&quot;             heartbeat
+               &quot;@G&lt;slot&gt;&lt;16hex&gt;&quot; redefine custom glyph 1-7
+  Uno -&gt; Mac:  &quot;@HELLO&quot;         on boot
+               &quot;@K&lt;c&gt;&quot;          joystick: U D L R, C click, H hold
+               &quot;@X&lt;a&gt;&lt;b&gt;&quot;       keypad press connecting pins Da and Db
+               &quot;@A&quot;             alive, every 4 s
+
+  Wiring: LCD I2C backpack SDA A4, SCL A5. Joystick VRx A0, VRy A1, SW A2.
+          Keypad (optional) pins 1-7 -&gt; D8..D2.
+*/
+#include &lt;Wire.h&gt;
+#include &lt;LiquidCrystal_I2C.h&gt;
+
+LiquidCrystal_I2C* lcdp;
+#define lcd (*lcdp)
+
+const byte JX = A0, JY = A1, JSW = A2;
+// Keypad: no fixed pinout. Every press reports which two of D2..D8 it connects (&quot;@X&lt;a&gt;&lt;b&gt;&quot;),
+// and the Mac maps pairs to keys after a one-time calibration.
+const byte KP_FIRST = 2, KP_LAST = 8;
+
+// glyphs the Mac can use as bytes 1-7
+byte gPlay[8]  = {0b01000,0b01100,0b01110,0b01111,0b01110,0b01100,0b01000,0};
+byte gPause[8] = {0b11011,0b11011,0b11011,0b11011,0b11011,0b11011,0b11011,0};
+byte gNote[8]  = {0b00100,0b00110,0b00101,0b00101,0b00100,0b11100,0b11100,0};
+byte gSun[8]   = {0b00100,0b10101,0b01110,0b11011,0b01110,0b10101,0b00100,0};
+byte gSpk[8]   = {0b00001,0b00011,0b11111,0b11111,0b11111,0b00011,0b00001,0};
+byte gBell[8]  = {0b00100,0b01110,0b01110,0b01110,0b11111,0,0b00100,0};
+byte gHalf[8]  = {0b11100,0b11100,0b11100,0b11100,0b11100,0b11100,0b11100,0};
+
+char buf[64]; byte blen = 0;
+unsigned long lastMac = 0;
+bool waiting = true;
+
+void row(byte r, const char* s) {
+  lcd.setCursor(0, r);
+  byte i = 0;
+  for (; s[i] &amp;&amp; i &lt; 20; i++) lcd.write((uint8_t)s[i]);
+  for (; i &lt; 20; i++) lcd.write(&#x27; &#x27;);
+}
+
+void waitScreen() {
+  row(0, &quot;       DECKY&quot;);
+  row(1, &quot;&quot;);
+  row(2, &quot;  waiting for Mac...&quot;);
+  row(3, &quot; run deck.py on Mac&quot;);
+}
+
+void send(char c) { Serial.print(F(&quot;@K&quot;)); Serial.println(c); }
+
+void handleLine() {
+  buf[blen] = 0;
+  if (blen &gt;= 2 &amp;&amp; buf[0] == &#x27;@&#x27;) {
+    lastMac = millis();
+    if (waiting) { waiting = false; lcd.clear(); }
+    if (buf[1] == &#x27;L&#x27; &amp;&amp; blen &gt;= 3 &amp;&amp; buf[2] &gt;= &#x27;0&#x27; &amp;&amp; buf[2] &lt;= &#x27;3&#x27;) row(buf[2] - &#x27;0&#x27;, buf + 3);
+    if (buf[1] == &#x27;G&#x27; &amp;&amp; blen &gt;= 19 &amp;&amp; buf[2] &gt;= &#x27;1&#x27; &amp;&amp; buf[2] &lt;= &#x27;7&#x27;) {   // @G&lt;slot&gt;&lt;16 hex&gt; redefine a glyph
+      byte g[8];
+      for (byte i = 0; i &lt; 8; i++) {
+        char h = buf[3 + i * 2], l = buf[4 + i * 2];
+        g[i] = ((h &lt;= &#x27;9&#x27; ? h - &#x27;0&#x27; : h - &#x27;a&#x27; + 10) &lt;&lt; 4) | (l &lt;= &#x27;9&#x27; ? l - &#x27;0&#x27; : l - &#x27;a&#x27; + 10);
+      }
+      lcd.createChar(buf[2] - &#x27;0&#x27;, g);
+    }
+  }
+  blen = 0;
+}
+
+void pollSerial() {
+  while (Serial.available()) {
+    char c = Serial.read();
+    if (c == &#x27;\n&#x27;) handleLine();
+    else if (c != &#x27;\r&#x27; &amp;&amp; blen &lt; 63) buf[blen++] = c;
+  }
+}
+
+// joystick -&gt; one event per push (must return to centre before the next step)
+char lastDir = 0;
+bool swWas = false, holdSent = false; unsigned long swDown = 0, centredAt = 0;
+
+void pollJoystick() {
+  unsigned long now = millis();
+  int x = analogRead(JX) - 512, y = analogRead(JY) - 512;
+  if (lastDir == 0) {
+    if (now - centredAt &gt; 120 &amp;&amp; (abs(x) &gt; 300 || abs(y) &gt; 300)) {
+      lastDir = abs(x) &gt; abs(y) ? (x &lt; 0 ? &#x27;L&#x27; : &#x27;R&#x27;) : (y &lt; 0 ? &#x27;U&#x27; : &#x27;D&#x27;);
+      send(lastDir);
+    }
+  } else if (abs(x) &lt; 150 &amp;&amp; abs(y) &lt; 150) {     // back near centre: arm the next step
+    lastDir = 0; centredAt = now;
+  }
+
+  bool sw = digitalRead(JSW) == LOW;
+  if (sw &amp;&amp; !swWas) { swDown = now; holdSent = false; }
+  if (sw &amp;&amp; !holdSent &amp;&amp; now - swDown &gt; 700) { send(&#x27;H&#x27;); holdSent = true; }
+  if (!sw &amp;&amp; swWas &amp;&amp; !holdSent &amp;&amp; now - swDown &gt; 25) send(&#x27;C&#x27;);
+  swWas = sw;
+}
+
+// scan all pin pairs; returns a*10+b (a&lt;b) for the connected pair, or 0
+byte scanPair() {
+  for (byte a = KP_FIRST; a &lt;= KP_LAST; a++) {
+    pinMode(a, OUTPUT); digitalWrite(a, LOW);
+    delayMicroseconds(30);
+    for (byte b = a + 1; b &lt;= KP_LAST; b++) {
+      if (digitalRead(b) == LOW) { pinMode(a, INPUT_PULLUP); return a * 10 + b; }
+    }
+    pinMode(a, INPUT_PULLUP);
+  }
+  return 0;
+}
+byte kpLast = 0, kpCand = 0; unsigned long kpSince = 0;
+void pollKeypad() {
+  byte p = scanPair();
+  unsigned long now = millis();
+  if (p != kpCand) { kpCand = p; kpSince = now; return; }
+  if (now - kpSince &lt; 30 || p == kpLast) return;       // debounce, one event per press
+  kpLast = p;
+  if (p) { Serial.print(F(&quot;@X&quot;)); Serial.println(p); }
+}
+
+void setup() {
+  for (byte a = KP_FIRST; a &lt;= KP_LAST; a++) pinMode(a, INPUT_PULLUP);
+  Serial.begin(9600);
+  pinMode(JSW, INPUT_PULLUP);
+  Wire.begin();
+  Wire.setClock(100000);
+  delay(200);
+  byte addr = 0x27;
+  for (byte a = 0x20; a &lt; 0x40; a++) { Wire.beginTransmission(a); if (Wire.endTransmission() == 0) { addr = a; break; } }
+  lcdp = new LiquidCrystal_I2C(addr, 20, 4);
+  lcd.init(); delay(50); lcd.init(); lcd.backlight();
+  lcd.createChar(1, gPlay); lcd.createChar(2, gPause); lcd.createChar(3, gNote); lcd.createChar(4, gSun);
+  lcd.createChar(5, gSpk);  lcd.createChar(6, gBell);  lcd.createChar(7, gHalf);
+  lcd.clear();
+  waitScreen();
+  Serial.println(F(&quot;@HELLO&quot;));
+}
+
+void loop() {
+  pollSerial();
+  pollJoystick();
+  pollKeypad();
+  if (!waiting &amp;&amp; millis() - lastMac &gt; 7000) { waiting = true; lcd.clear(); waitScreen(); }
+  if (waiting &amp;&amp; millis() % 3000 &lt; 2) { Serial.println(F(&quot;@HELLO&quot;)); delay(2); }
+  static unsigned long lastAlive = 0;
+  if (millis() - lastAlive &gt; 4000) { lastAlive = millis(); Serial.println(F(&quot;@A&quot;)); }   // lets the Mac detect a dead link
+}
+</code></pre>
+<h3 class="file">mac/deck.py</h3><pre><code>#!/usr/bin/env python3
+&quot;&quot;&quot;
+DECKY — turns the Arduino (LCD + joystick) into a control deck for this Mac.
+
+  python3 mac/deck.py
+
+Joystick: up/down move, right or click select, left back, hold click = back to home.
+All menus and actions live here, so changing them never needs a reflash.
+Standard library only.
+&quot;&quot;&quot;
+import ctypes, glob, os, plistlib, select, shutil, sqlite3, subprocess, sys, termios, threading, time, unicodedata
+
+# ---- joystick orientation (flip these if directions feel reversed) ----
+INVERT_Y = False
+INVERT_X = False
+BAUD = termios.B9600
+
+# LCD glyph bytes defined in the firmware
+PLAY, PAUSE, NOTE, SUN, SPK, BELL, HALF, FULL = &quot;\x01&quot;, &quot;\x02&quot;, &quot;\x03&quot;, &quot;\x04&quot;, &quot;\x05&quot;, &quot;\x06&quot;, &quot;\x07&quot;, &quot;\xff&quot;
+
+
+# glyph sets (5x8 bitmaps) the deck can load into LCD slots 1-7
+GLYPHS = {
+    &quot;icons&quot;: [[0x08,0x0c,0x0e,0x0f,0x0e,0x0c,0x08,0], [0x1b]*7+[0], [0x04,0x06,0x05,0x05,0x04,0x1c,0x1c,0],
+              [0x04,0x15,0x0e,0x1b,0x0e,0x15,0x04,0], [0x01,0x03,0x1f,0x1f,0x1f,0x03,0x01,0],
+              [0x04,0x0e,0x0e,0x0e,0x1f,0,0x04,0], [0x1c]*7+[0]],
+    # bar heights 1..7 for the sound meter (slot n = n rows lit from the bottom)
+    &quot;bars&quot;: [[0]*(8-n) + [0x0e]*n for n in range(1, 8)],
+}
+
+
+# ---------------- helpers ----------------
+def ascii20(text, n=20):
+    text = (text or &quot;&quot;).replace(&quot;’&quot;, &quot;&#x27;&quot;).replace(&quot;‘&quot;, &quot;&#x27;&quot;).replace(&quot;“&quot;, &#x27;&quot;&#x27;).replace(&quot;”&quot;, &#x27;&quot;&#x27;).replace(&quot;—&quot;, &quot;-&quot;).replace(&quot;–&quot;, &quot;-&quot;)
+    text = unicodedata.normalize(&quot;NFKD&quot;, text).encode(&quot;ascii&quot;, &quot;ignore&quot;).decode()
+    text = &quot; &quot;.join(text.replace(&quot;\\&quot;, &quot;/&quot;).replace(&quot;~&quot;, &quot;-&quot;).split())
+    return text[:n] if n else text
+
+
+def osa(script, timeout=8):
+    try:
+        r = subprocess.run([&quot;osascript&quot;, &quot;-e&quot;, script], capture_output=True, text=True, timeout=timeout)
+        return r.stdout.strip()
+    except subprocess.TimeoutExpired:
+        return &quot;&quot;
+
+
+def bar(frac, width=20):
+    frac = max(0.0, min(1.0, frac))
+    halves = round(frac * width * 2)
+    return (FULL * (halves // 2) + (HALF if halves % 2 else &quot;&quot;)).ljust(width)
+
+
+def marquee(text, width=20, t=None):
+    if len(text) &lt;= width:
+        return text
+    t = time.time() if t is None else t
+    span = text + &quot;    &quot;
+    off = int(t / 0.35) % len(span)
+    return (span + span)[off:off + width]
+
+
+# ---------------- Mac controls ----------------
+class Display:
+    def __init__(self):
+        try:
+            self.cg = ctypes.CDLL(&quot;/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics&quot;)
+            self.cg.CGMainDisplayID.restype = ctypes.c_uint32
+            self.ds = ctypes.CDLL(&quot;/System/Library/PrivateFrameworks/DisplayServices.framework/DisplayServices&quot;)
+            self.ds.DisplayServicesSetBrightness.argtypes = [ctypes.c_uint32, ctypes.c_float]
+            self.ok = True
+        except OSError:
+            self.ok = False
+
+    def get(self):
+        if not self.ok: return 0.0
+        v = ctypes.c_float(); self.ds.DisplayServicesGetBrightness(self.cg.CGMainDisplayID(), ctypes.byref(v)); return v.value
+
+    def set(self, v):
+        if self.ok: self.ds.DisplayServicesSetBrightness(self.cg.CGMainDisplayID(), max(0.0, min(1.0, v)))
+
+
+DISPLAY = Display()
+
+
+def volume_get():
+    out = osa(&quot;set s to get volume settings\nreturn (output volume of s as string) &amp; \&quot;|\&quot; &amp; (output muted of s as string)&quot;)
+    try:
+        v, m = out.split(&quot;|&quot;); return int(v), m == &quot;true&quot;
+    except ValueError:
+        return 0, False
+
+
+def spotify_status():
+    out = osa(
+        &#x27;if application &quot;Spotify&quot; is running then\n tell application &quot;Spotify&quot;\n  set s to player state as string\n&#x27;
+        &#x27;  try\n   return s &amp; &quot;|&quot; &amp; (sound volume as string) &amp; &quot;|&quot; &amp; (name of current track) &amp; &quot;|&quot; &amp; (artist of current track)\n&#x27;
+        &#x27;  on error\n   return s &amp; &quot;|&quot; &amp; (sound volume as string) &amp; &quot;||&quot;\n  end try\n end tell\nend if\nreturn &quot;closed|0||&quot;&#x27;)
+    p = (out + &quot;|||&quot;).split(&quot;|&quot;)
+    try: vol = int(float(p[1] or 0))
+    except ValueError: vol = 0
+    return p[0] or &quot;closed&quot;, vol, ascii20(p[2], 0), ascii20(p[3], 0)
+
+
+def spotify(cmd):
+    osa({&quot;toggle&quot;: &#x27;tell application &quot;Spotify&quot; to playpause&#x27;, &quot;next&quot;: &#x27;tell application &quot;Spotify&quot; to next track&#x27;,
+         &quot;prev&quot;: &#x27;tell application &quot;Spotify&quot; to previous track&#x27;,
+         &quot;up&quot;: &#x27;tell application &quot;Spotify&quot; to set sound volume to (((round ((sound volume) / 5)) * 5) + 5)&#x27;,
+         &quot;down&quot;: &#x27;tell application &quot;Spotify&quot; to set sound volume to (((round ((sound volume) / 5)) * 5) - 5)&#x27;}[cmd])
+
+
+def running_apps():
+    out = osa(&#x27;tell application &quot;System Events&quot;\n set L to {}\n repeat with p in (every application process whose background only is false)\n&#x27;
+              &#x27;  set end of L to (name of p) &amp; &quot;|&quot; &amp; (bundle identifier of p) &amp; &quot;|&quot; &amp; (frontmost of p as string)\n end repeat\n&#x27;
+              &#x27; set AppleScript\&#x27;s text item delimiters to linefeed\n return L as text\nend tell&#x27;)
+    apps = []
+    for line in out.splitlines():
+        parts = line.split(&quot;|&quot;)
+        if len(parts) == 3:
+            apps.append((parts[0], parts[1], parts[2] == &quot;true&quot;))
+    return sorted(apps, key=lambda a: (not a[2], a[0].lower()))
+
+
+NOTIF_DIR = os.path.expanduser(&quot;~/Library/Group Containers/group.com.apple.usernoted&quot;)
+
+
+def notifications(limit=15):
+    &quot;&quot;&quot;Recent notifications from macOS&#x27;s own database. Needs Full Disk Access for Terminal.&quot;&quot;&quot;
+    paths = glob.glob(NOTIF_DIR + &quot;/db2/db&quot;) + glob.glob(NOTIF_DIR + &quot;/**/db&quot;, recursive=True)
+    if not os.access(NOTIF_DIR, os.R_OK) or not paths:
+        return None
+    try:
+        con = sqlite3.connect(f&quot;file:{paths[0]}?mode=ro&quot;, uri=True)
+        rows = con.execute(&quot;select a.identifier, r.data, r.delivered_date from record r join app a on a.app_id = r.app_id &quot;
+                           &quot;order by r.delivered_date desc limit ?&quot;, (limit,)).fetchall()
+        con.close()
+    except sqlite3.Error:
+        return None
+    out = []
+    for ident, data, when in rows:
+        try:
+            req = plistlib.loads(data).get(&quot;req&quot;, {})
+        except Exception:
+            req = {}
+        app = ident.split(&quot;.&quot;)[-1].capitalize() if ident else &quot;App&quot;
+        out.append({&quot;app&quot;: ascii20(app, 0), &quot;title&quot;: ascii20(req.get(&quot;titl&quot;, &quot;&quot;), 0), &quot;body&quot;: ascii20(req.get(&quot;body&quot;, &quot;&quot;), 0),
+                    &quot;when&quot;: (when or 0) + 978307200})
+    return out
+
+
+def ago(ts):
+    s = int(time.time() - ts)
+    return f&quot;{s // 60}m&quot; if s &lt; 3600 else f&quot;{s // 3600}h&quot; if s &lt; 86400 else f&quot;{s // 86400}d&quot;
+
+
+# ---------------- screens ----------------
+class Screen:
+    title = &quot;&quot;
+    def lines(self): return [&quot;&quot;, &quot;&quot;, &quot;&quot;, &quot;&quot;]
+    def key(self, k, deck): pass
+    def tick(self): pass
+
+
+class ListScreen(Screen):
+    def __init__(self): self.i = 0
+    def items(self): return []
+    def header(self): return self.title
+    def lines(self):
+        items = self.items()
+        if not items: return [self.header(), &quot;&quot;, &quot;  (nothing here)&quot;, &quot;&quot;]
+        self.i = max(0, min(self.i, len(items) - 1))
+        top = max(0, min(self.i - 1, len(items) - 3))
+        rows = [self.header()]
+        for j in range(top, top + 3):
+            rows.append(((&quot;&gt;&quot; if j == self.i else &quot; &quot;) + items[j])[:20] if j &lt; len(items) else &quot;&quot;)
+        return rows
+    def key(self, k, deck):
+        n = len(self.items())
+        if k == &quot;U&quot;: self.i = (self.i - 1) % max(n, 1)
+        elif k == &quot;D&quot;: self.i = (self.i + 1) % max(n, 1)
+        elif k in &quot;CR&quot; and n: self.select(self.i, deck)
+        elif k == &quot;L&quot;: deck.back()
+    def select(self, i, deck): pass
+
+
+class Home(ListScreen):
+    def __init__(self):
+        super().__init__()
+        self.entries = [(NOTE + &quot; Spotify&quot;, SpotifyScreen), (&quot;# Apps&quot;, AppsScreen), (SUN + &quot; Brightness&quot;, BrightnessScreen),
+                        (SPK + &quot; Volume&quot;, VolumeScreen), (BELL + &quot; Notifications&quot;, NotificationsScreen), (&quot;* Quick actions&quot;, QuickScreen)]
+    def header(self): return &quot;DECKY&quot; + time.strftime(&quot;%H:%M&quot;).rjust(15)
+    def items(self): return [e[0] for e in self.entries]
+    def select(self, i, deck): deck.push(self.entries[i][1]())
+    def key(self, k, deck):
+        if k == &quot;L&quot;: return
+        super().key(k, deck)
+
+
+class SpotifyScreen(Screen):
+    glyphs = &quot;bars&quot;
+    def __init__(self):
+        self.state, self.vol, self.track, self.artist = &quot;?&quot;, 0, &quot;&quot;, &quot;&quot;
+        self.toast, self.toast_until, self.last = &quot;&quot;, 0, 0
+        self.hint_until = time.time() + 5
+        self.levels = [0.0] * 20
+        self.refresh()
+    def meter(self):
+        &quot;&quot;&quot;Animated 20-band sound profile: bass-heavy, with a ~118 bpm pulse. Flat when paused.&quot;&quot;&quot;
+        import math, random
+        t = time.time()
+        playing = self.state == &quot;playing&quot;
+        beat = max(0.0, math.cos(t * 2 * math.pi * 118 / 60)) ** 6
+        out = &quot;&quot;
+        for i in range(20):
+            if playing:
+                shape = 0.85 - 0.45 * (i / 19)                       # louder lows, softer highs
+                target = shape * (0.45 + 0.55 * random.random()) + 0.35 * beat * (1 - i / 25)
+            else:
+                target = 0.0
+            self.levels[i] = max(target, self.levels[i] * 0.6)        # fast attack, smooth fall
+            h = round(min(1.0, self.levels[i]) * 7)
+            out += chr(h) if h else (&quot;_&quot; if not playing else &quot; &quot;)
+        return out
+    def refresh(self):
+        self.state, self.vol, self.track, self.artist = spotify_status(); self.last = time.time()
+    def tick(self):
+        if time.time() - self.last &gt; 1.5: self.refresh()
+    def flash(self, m): self.toast, self.toast_until = m, time.time() + 1.2
+    def lines(self):
+        if self.state == &quot;closed&quot;:
+            return [NOTE + &quot; Spotify&quot;, &quot;Spotify is closed&quot;, &quot;click = open + play&quot;, &quot;left = back&quot;]
+        top = (&quot;&gt; Playing&quot; if self.state == &quot;playing&quot; else &quot;|| Paused&quot;).ljust(13) + f&quot;vol{round(self.vol / 5) * 5:3d}&quot;
+        now = time.time()
+        if now &lt; self.toast_until: foot = self.toast
+        elif now &lt; self.hint_until: foot = &quot;&lt;&gt;skip ^v vol o=play&quot;
+        else: foot = self.meter()
+        return [top, marquee(self.track), self.artist[:20], foot]
+    def key(self, k, deck):
+        if self.state == &quot;closed&quot; and k == &quot;C&quot;:
+            osa(&#x27;tell application &quot;Spotify&quot; to play&#x27;); self.flash(&quot;opening Spotify...&quot;)
+        elif k == &quot;C&quot;: spotify(&quot;toggle&quot;); self.flash(&quot;play / pause&quot;)
+        elif k == &quot;R&quot;: spotify(&quot;next&quot;); self.flash(&quot;next &gt;&gt;&quot;)
+        elif k == &quot;L&quot;: spotify(&quot;prev&quot;); self.flash(&quot;&lt;&lt; previous&quot;)
+        elif k == &quot;U&quot;: spotify(&quot;up&quot;); self.flash(&quot;volume +&quot;)
+        elif k == &quot;D&quot;: spotify(&quot;down&quot;); self.flash(&quot;volume -&quot;)
+        self.last = time.time() - 1.1   # refresh soon
+
+
+class AppsScreen(ListScreen):
+    title = &quot;# Switch app&quot;
+    def __init__(self):
+        super().__init__(); self.apps = running_apps(); self.toast_until = 0; self.last = time.time()
+    def items(self): return [ascii20(a[0], 18) + (&quot; *&quot; if a[2] else &quot;&quot;) for a in self.apps]
+    def header(self): return &quot;Switched!&quot; if time.time() &lt; self.toast_until else self.title
+    def tick(self):
+        if time.time() - self.last &gt; 4:
+            cur = self.apps[self.i][0] if self.apps else None
+            self.apps = running_apps(); self.last = time.time()
+            names = [a[0] for a in self.apps]
+            if cur in names: self.i = names.index(cur)
+    def select(self, i, deck):
+        name, bid, _ = self.apps[i]
+        subprocess.run([&quot;open&quot;, &quot;-b&quot;, bid] if bid and bid != &quot;missing value&quot; else [&quot;open&quot;, &quot;-a&quot;, name], capture_output=True)
+        self.toast_until = time.time() + 1.2; self.last = 0
+
+
+class LevelScreen(Screen):
+    step = 0.05
+    def get(self): return 0.0
+    def set(self, v): pass
+    def name(self): return &quot;&quot;
+    def hint(self): return &quot;^v adjust  &lt; back&quot;
+    def lines(self):
+        v = self.get()
+        return [self.name().ljust(15) + f&quot;{round(v * 100):3d}%&quot;[-4:].rjust(5), bar(v), &quot;&quot;, self.hint()]
+    def key(self, k, deck):
+        snap = lambda v: max(0.0, min(1.0, round(v * 20) / 20))     # clean 5% steps
+        if k in &quot;UR&quot;: self.set(snap(snap(self.get()) + self.step))
+        elif k == &quot;D&quot;: self.set(snap(snap(self.get()) - self.step))
+        elif k == &quot;L&quot;: deck.back()
+        elif k == &quot;C&quot;: self.click()
+    def click(self): pass
+
+
+class BrightnessScreen(LevelScreen):
+    def __init__(self): self.saved = None
+    def name(self): return SUN + &quot; Brightness&quot;
+    def get(self): return DISPLAY.get()
+    def set(self, v): DISPLAY.set(v)
+    def hint(self): return &quot;^v adjust o=dim/max&quot;
+    def click(self):
+        if self.get() &gt; 0.25: self.saved = self.get(); self.set(0.15)
+        else: self.set(self.saved or 1.0)
+
+
+class VolumeScreen(LevelScreen):
+    def name(self):
+        return SPK + (&quot; Volume (muted)&quot; if volume_get()[1] else &quot; Volume&quot;)
+    def get(self): return volume_get()[0] / 100
+    def set(self, v): osa(f&quot;set volume output volume {round(max(0, min(1, v)) * 100)}&quot;)
+    def hint(self): return &quot;^v adjust  o=mute&quot;
+    def click(self): osa(&quot;set volume output muted (not (output muted of (get volume settings)))&quot;)
+    def lines(self):
+        v, muted = volume_get()
+        return [(SPK + (&quot; Muted&quot; if muted else &quot; Volume&quot;)).ljust(15) + f&quot;{v:4d}%&quot;, bar(0 if muted else v / 100), &quot;&quot;, self.hint()]
+
+
+class NotificationsScreen(ListScreen):
+    title = BELL + &quot; Notifications&quot;
+    def __init__(self):
+        super().__init__(); self.data = notifications(); self.last = time.time()
+    def tick(self):
+        if time.time() - self.last &gt; 5: self.data = notifications(); self.last = time.time()
+    def lines(self):
+        if self.data is None:
+            return [BELL + &quot; Notifications&quot;, &quot;Needs Full Disk&quot;, &quot;Access for Terminal&quot;, &quot;click = open setting&quot;]
+        return super().lines()
+    def items(self): return [f&quot;{n[&#x27;app&#x27;][:8]}:{n[&#x27;title&#x27;] or n[&#x27;body&#x27;]}&quot;[:19] for n in (self.data or [])]
+    def key(self, k, deck):
+        if self.data is None:
+            if k == &quot;C&quot;:
+                subprocess.run([&quot;open&quot;, &quot;x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles&quot;])
+            elif k == &quot;L&quot;: deck.back()
+            return
+        super().key(k, deck)
+    def select(self, i, deck): deck.push(NotificationDetail(self.data[i]))
+
+
+class NotificationDetail(Screen):
+    def __init__(self, n):
+        self.n, self.off = n, 0
+        words, cur, self.wrapped = (n[&quot;title&quot;] + &quot; - &quot; + n[&quot;body&quot;]).split(), &quot;&quot;, []
+        for w in words:
+            if len(cur) + len(w) + (1 if cur else 0) &gt; 20: self.wrapped.append(cur); cur = w
+            else: cur = (cur + &quot; &quot; + w) if cur else w
+        if cur: self.wrapped.append(cur)
+    def lines(self):
+        body = self.wrapped[self.off:self.off + 3]
+        return [f&quot;{self.n[&#x27;app&#x27;][:14]} {ago(self.n[&#x27;when&#x27;])}&quot;.ljust(20)[:20]] + body + [&quot;&quot;] * (3 - len(body))
+    def key(self, k, deck):
+        if k == &quot;D&quot; and self.off + 3 &lt; len(self.wrapped): self.off += 1
+        elif k == &quot;U&quot; and self.off: self.off -= 1
+        elif k in &quot;LC&quot;: deck.back()
+
+
+class QuickScreen(ListScreen):
+    title = &quot;* Quick actions&quot;
+    def __init__(self):
+        super().__init__(); self.toast, self.toast_until, self.caf = &quot;&quot;, 0, None
+    def header(self): return self.toast if time.time() &lt; self.toast_until else self.title
+    def items(self):
+        return [&quot;Mission Control&quot;, &quot;Dark mode on/off&quot;, &quot;Screenshot&quot;, (&quot;Keep awake: ON&quot; if self.caf else &quot;Keep awake: off&quot;),
+                &quot;Sleep display&quot;, &quot;Show Desktop folder&quot;, &quot;Set up keypad&quot;]
+    def select(self, i, deck):
+        msg = &quot;Done&quot;
+        if i == 0: subprocess.Popen([&quot;open&quot;, &quot;-a&quot;, &quot;Mission Control&quot;])
+        elif i == 1:
+            osa(&#x27;tell application &quot;System Events&quot; to tell appearance preferences to set dark mode to not dark mode&#x27;); msg = &quot;Dark mode toggled&quot;
+        elif i == 2:
+            path = os.path.expanduser(time.strftime(&quot;~/Desktop/Deck shot %Y-%m-%d %H.%M.%S.png&quot;))
+            subprocess.run([&quot;screencapture&quot;, &quot;-x&quot;, path]); msg = &quot;Saved to Desktop&quot; if os.path.exists(path) else &quot;Allow Screen Rec.&quot;
+        elif i == 3:
+            if self.caf: self.caf.terminate(); self.caf = None; msg = &quot;Normal sleep&quot;
+            else: self.caf = subprocess.Popen([&quot;caffeinate&quot;, &quot;-d&quot;]); msg = &quot;Mac stays awake&quot;
+        elif i == 4: subprocess.run([&quot;pmset&quot;, &quot;displaysleepnow&quot;]); msg = &quot;Display asleep&quot;
+        elif i == 5: subprocess.Popen([&quot;open&quot;, os.path.expanduser(&quot;~/Desktop&quot;)]); msg = &quot;Opened Desktop&quot;
+        elif i == 6: deck.push(KeypadSetup()); return
+        self.toast, self.toast_until = msg[:20], time.time() + 1.5
+
+
+KEYMAP_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), &quot;keypad.json&quot;)
+KEY_ORDER = [&quot;1&quot;, &quot;2&quot;, &quot;3&quot;, &quot;4&quot;, &quot;5&quot;, &quot;6&quot;, &quot;7&quot;, &quot;8&quot;, &quot;9&quot;, &quot;*&quot;, &quot;0&quot;, &quot;#&quot;]
+
+
+def load_keymap():
+    try:
+        import json
+        with open(KEYMAP_FILE) as f: return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+class KeypadSetup(Screen):
+    &quot;&quot;&quot;Press each key once; learns which wire pair is which key.&quot;&quot;&quot;
+    def __init__(self): self.map, self.i, self.done_at = {}, 0, 0
+    def lines(self):
+        if self.i &gt;= len(KEY_ORDER):
+            return [&quot;Keypad setup&quot;, &quot;All 12 keys learned&quot;, &quot;Saved. Keypad ready.&quot;, &quot;any key = back&quot;]
+        return [&quot;Keypad setup &quot; + f&quot;{self.i + 1:2d}/12&quot;, &quot;&quot;, &quot;  Press key:  &quot; + KEY_ORDER[self.i], &quot;joystick &lt; = cancel&quot;]
+    def raw(self, pair, deck):
+        if self.i &gt;= len(KEY_ORDER): deck.back(); return
+        if pair in self.map: return               # same wires as an earlier key: ignore
+        self.map[pair] = KEY_ORDER[self.i]; self.i += 1
+        if self.i == len(KEY_ORDER):
+            import json
+            with open(KEYMAP_FILE, &quot;w&quot;) as f: json.dump(self.map, f, indent=1)
+            deck.keymap = dict(self.map)
+    def key(self, k, deck):
+        if k in &quot;LH&quot; or self.i &gt;= len(KEY_ORDER): deck.back()
+
+
+# ---------------- deck engine ----------------
+class Deck:
+    def __init__(self, fd):
+        self.fd, self.stack, self.sent = fd, [Home()], [None] * 4
+        self.lock = threading.Lock()
+        self.banner, self.banner_until, self.seen_notif = None, 0, None
+        self.glyphset = None
+        self.keymap = load_keymap()
+
+    def write(self, s):
+        with self.lock:
+            os.write(self.fd, s.encode(&quot;latin-1&quot;, &quot;replace&quot;))
+
+    def push(self, scr): self.stack.append(scr)
+    def back(self):
+        if len(self.stack) &gt; 1: self.stack.pop()
+    def home(self): self.stack = self.stack[:1]
+
+    def load_glyphs(self, name):
+        if name == self.glyphset: return
+        self.glyphset = name
+        for slot, rows in enumerate(GLYPHS[name], start=1):
+            self.write(f&quot;@G{slot}&quot; + &quot;&quot;.join(f&quot;{b:02x}&quot; for b in rows) + &quot;\n&quot;)
+        self.sent = [None] * 4      # glyphs changed meaning: redraw everything
+
+    def render(self, force=False):
+        scr = self.stack[-1]
+        self.load_glyphs(getattr(scr, &quot;glyphs&quot;, &quot;icons&quot;) if time.time() &gt;= self.banner_until else &quot;icons&quot;)
+        try:
+            scr.tick(); rows = scr.lines()
+        except Exception as e:
+            rows = [&quot;Error&quot;, ascii20(str(e)), &quot;&quot;, &quot;hold = home&quot;]
+        if time.time() &lt; self.banner_until and self.banner:
+            rows = [BELL + &quot; &quot; + self.banner[&quot;app&quot;][:17], self.banner[&quot;title&quot;][:20], self.banner[&quot;body&quot;][:20], self.banner[&quot;body&quot;][20:40]]
+        for r in range(4):
+            line = (rows[r] if r &lt; len(rows) else &quot;&quot;)[:20]
+            if force or line != self.sent[r]:
+                self.write(f&quot;@L{r}{line}\n&quot;); self.sent[r] = line
+
+    def on_key(self, k):
+        if k in &quot;UD&quot; and INVERT_Y: k = &quot;D&quot; if k == &quot;U&quot; else &quot;U&quot;
+        if k in &quot;LR&quot; and INVERT_X: k = &quot;R&quot; if k == &quot;L&quot; else &quot;L&quot;
+        if time.time() &lt; self.banner_until: self.banner_until = 0; return     # any key dismisses a banner
+        if k == &quot;H&quot;: self.home(); return
+        keymap = {&quot;2&quot;: &quot;U&quot;, &quot;8&quot;: &quot;D&quot;, &quot;4&quot;: &quot;L&quot;, &quot;6&quot;: &quot;R&quot;, &quot;5&quot;: &quot;C&quot;, &quot;#&quot;: &quot;H&quot;, &quot;*&quot;: &quot;L&quot;}
+        k = keymap.get(k, k)
+        if k == &quot;H&quot;: self.home(); return
+        self.stack[-1].key(k, self)
+
+    def on_raw(self, pair):
+        print(f&quot;keypad wires D{pair[0]}-D{pair[1]} -&gt; {self.keymap.get(pair, &#x27;?&#x27;)}&quot;)
+        scr = self.stack[-1]
+        if isinstance(scr, KeypadSetup): scr.raw(pair, self); return
+        key = self.keymap.get(pair)
+        if not key:
+            if not self.keymap: self.push(KeypadSetup())      # first ever press: start setup
+            return
+        if time.time() &lt; self.banner_until: self.banner_until = 0; return
+        hot = {&quot;1&quot;: lambda: spotify(&quot;toggle&quot;), &quot;3&quot;: lambda: spotify(&quot;next&quot;),
+               &quot;7&quot;: lambda: osa(&quot;set volume output muted (not (output muted of (get volume settings)))&quot;),
+               &quot;9&quot;: lambda: subprocess.Popen([&quot;open&quot;, &quot;-a&quot;, &quot;Mission Control&quot;]),
+               &quot;0&quot;: lambda: self.push(SpotifyScreen()) if not isinstance(scr, SpotifyScreen) else None}
+        if key in hot: hot[key](); return
+        nav = {&quot;2&quot;: &quot;U&quot;, &quot;8&quot;: &quot;D&quot;, &quot;4&quot;: &quot;L&quot;, &quot;6&quot;: &quot;R&quot;, &quot;5&quot;: &quot;C&quot;, &quot;*&quot;: &quot;L&quot;, &quot;#&quot;: &quot;H&quot;}[key]
+        if nav == &quot;H&quot;: self.home(); return
+        if key == &quot;*&quot;: self.back(); return
+        scr.key(nav, self)
+
+    def watch_notifications(self):
+        while True:
+            data = notifications(3)
+            if data:
+                newest = data[0]
+                key = (newest[&quot;app&quot;], newest[&quot;title&quot;], newest[&quot;when&quot;])
+                if self.seen_notif is not None and key != self.seen_notif and time.time() - newest[&quot;when&quot;] &lt; 60:
+                    self.banner, self.banner_until = newest, time.time() + 5
+                self.seen_notif = key
+            time.sleep(3)
+
+
+def find_port():
+    ports = sorted(glob.glob(&quot;/dev/cu.usbserial-*&quot;) + glob.glob(&quot;/dev/cu.usbmodem*&quot;) + glob.glob(&quot;/dev/cu.wchusbserial*&quot;))
+    return ports[0] if ports else None
+
+
+def open_serial(path):
+    fd = os.open(path, os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK)
+    a = termios.tcgetattr(fd)
+    a[0] = 0; a[1] = 0; a[3] = 0; a[2] |= termios.CLOCAL | termios.CREAD; a[4] = a[5] = BAUD
+    termios.tcsetattr(fd, termios.TCSANOW, a)
+    return fd
+
+
+def run_once(port):
+    fd = open_serial(port)
+    deck = Deck(fd)
+    print(f&quot;Decky connected on {port}. Ctrl+C to quit.&quot;)
+    threading.Thread(target=deck.watch_notifications, daemon=True).start()
+    buf, last_render, last_ping, last_rx = b&quot;&quot;, 0, 0, time.time()
+    while True:
+        r, _, _ = select.select([fd], [], [], 0.05)
+        if time.time() - last_rx &gt; 15:
+            os.close(fd); raise OSError(&quot;no signal from the Uno for 15 s&quot;)
+        if r:
+            chunk = os.read(fd, 256)
+            if not chunk: raise OSError(&quot;disconnected&quot;)
+            buf += chunk; last_rx = time.time()
+            while b&quot;\n&quot; in buf:
+                raw, buf = buf.split(b&quot;\n&quot;, 1)
+                line = raw.decode(errors=&quot;ignore&quot;).strip()
+                if line == &quot;@HELLO&quot;:
+                    deck.sent = [None] * 4; deck.glyphset = None; deck.render(force=True)
+                elif line.startswith(&quot;@X&quot;) and len(line) &gt;= 4:
+                    deck.on_raw(line[2:]); deck.render()
+                elif line.startswith(&quot;@K&quot;) and len(line) &gt;= 3:
+                    deck.on_key(line[2]); deck.render()
+        now = time.time()
+        fast = isinstance(deck.stack[-1], SpotifyScreen)
+        if now - last_render &gt; (0.13 if fast else 0.35): deck.render(); last_render = now
+        if now - last_ping &gt; 3: deck.write(&quot;@P\n&quot;); last_ping = now
+
+
+def prime_permissions():
+    &quot;&quot;&quot;Ask macOS for every permission up front, once. After approval these never prompt again.&quot;&quot;&quot;
+    osa(&#x27;tell application &quot;System Events&quot; to get name of first application process whose frontmost is true&#x27;)   # Apps + dark mode
+    osa(&#x27;tell application &quot;System Events&quot; to tell appearance preferences to get dark mode&#x27;)
+    osa(&#x27;if application &quot;Spotify&quot; is running then tell application &quot;Spotify&quot; to get sound volume&#x27;)              # Spotify (if open)
+    notifications(1)                                                                                             # Full Disk Access check
+
+
+def main():
+    threading.Thread(target=prime_permissions, daemon=True).start()
+    while True:
+        port = find_port()
+        if not port:
+            print(&quot;Waiting for the Arduino to be plugged in...&quot;); time.sleep(3); continue
+        try:
+            run_once(port)
+        except KeyboardInterrupt:
+            print(&quot;\nDeck closed.&quot;); return
+        except OSError as e:
+            print(f&quot;Lost the Arduino ({e}). Reconnecting...&quot;)
+            time.sleep(2)
+
+
+if __name__ == &quot;__main__&quot;:
+    main()
+</code></pre>
+<h3 class="file">mac/install-autostart.sh</h3><pre><code>#!/bin/bash
+# Start Decky automatically at login (macOS LaunchAgent). Run again to reinstall; pass &quot;remove&quot; to uninstall.
+set -e
+DIR=&quot;$(cd &quot;$(dirname &quot;$0&quot;)&quot; &amp;&amp; pwd)&quot;
+PLIST=&quot;$HOME/Library/LaunchAgents/local.decky.plist&quot;
+launchctl bootout &quot;gui/$(id -u)&quot; &quot;$PLIST&quot; 2&gt;/dev/null || true
+if [ &quot;$1&quot; = &quot;remove&quot; ]; then rm -f &quot;$PLIST&quot;; echo &quot;Decky autostart removed.&quot;; exit 0; fi
+mkdir -p &quot;$HOME/Library/LaunchAgents&quot;
+cat &gt; &quot;$PLIST&quot; &lt;&lt;PL
+&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
+&lt;!DOCTYPE plist PUBLIC &quot;-//Apple//DTD PLIST 1.0//EN&quot; &quot;http://www.apple.com/DTDs/PropertyList-1.0.dtd&quot;&gt;
+&lt;plist version=&quot;1.0&quot;&gt;&lt;dict&gt;
+  &lt;key&gt;Label&lt;/key&gt;&lt;string&gt;local.decky&lt;/string&gt;
+  &lt;key&gt;ProgramArguments&lt;/key&gt;&lt;array&gt;&lt;string&gt;/usr/bin/python3&lt;/string&gt;&lt;string&gt;-u&lt;/string&gt;&lt;string&gt;$DIR/deck.py&lt;/string&gt;&lt;/array&gt;
+  &lt;key&gt;RunAtLoad&lt;/key&gt;&lt;true/&gt;
+  &lt;key&gt;KeepAlive&lt;/key&gt;&lt;true/&gt;
+  &lt;key&gt;ThrottleInterval&lt;/key&gt;&lt;integer&gt;5&lt;/integer&gt;
+  &lt;key&gt;StandardOutPath&lt;/key&gt;&lt;string&gt;$DIR/deck.log&lt;/string&gt;
+  &lt;key&gt;StandardErrorPath&lt;/key&gt;&lt;string&gt;$DIR/deck.log&lt;/string&gt;
+&lt;/dict&gt;&lt;/plist&gt;
+PL
+launchctl bootstrap &quot;gui/$(id -u)&quot; &quot;$PLIST&quot;
+echo &quot;Decky will now start at login. Log: $DIR/deck.log&quot;
+</code></pre>
+</body></html>
