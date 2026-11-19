@@ -280,12 +280,12 @@ class SpotifyScreen(Screen):
             return [NOTE + " Spotify", "", "  loading...", ""]
         if state == "closed":
             return [NOTE + " Spotify", "Spotify is closed", "click = open + play", "left = back"]
-        top = ("> Playing" if state == "playing" else "|| Paused").ljust(13) + f"vol{round(vol / 5) * 5:3d}"
+        info = time.strftime("%H:%M") + f"vol {round(vol / 5) * 5}".rjust(15)
         now = time.time()
         if now < self.toast_until: foot = self.toast
         elif now < self.hint_until: foot = "<>skip ^v vol o=play"
         else: foot = self.meter()
-        return [top, marquee(track), artist[:20], foot]
+        return [marquee(track), artist[:20], info, foot]
     def setvol(self, delta):
         state, vol, track, artist = Cache.spotify
         new = max(0, min(100, round(vol / 5) * 5 + delta))
