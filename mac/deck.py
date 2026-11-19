@@ -10,6 +10,9 @@ Standard library only.
 """
 import ctypes, glob, os, plistlib, queue, select, shutil, sqlite3, subprocess, sys, termios, threading, time, unicodedata
 
+# ---- Spotify is the resting screen: shown at start and after this many idle seconds ----
+IDLE_TO_SPOTIFY = 15
+
 # ---- joystick orientation (flip these if directions feel reversed) ----
 INVERT_Y = False
 INVERT_X = False
@@ -472,7 +475,8 @@ class KeypadSetup(Screen):
 # ---------------- deck engine ----------------
 class Deck:
     def __init__(self, fd):
-        self.fd, self.stack, self.sent = fd, [Home()], [None] * 4
+        self.fd, self.stack, self.sent = fd, [Home(), SpotifyScreen()], [None] * 4
+        self.last_input = time.time()
         self.lock = threading.Lock()
         self.banner, self.banner_until, self.seen_notif = None, 0, None
         self.glyphset = None
@@ -496,6 +500,9 @@ class Deck:
 
     def render(self, force=False):
         scr = self.stack[-1]
+        if (not isinstance(scr, (SpotifyScreen, KeypadSetup)) and time.time() - self.last_input > IDLE_TO_SPOTIFY):
+            spot = SpotifyScreen(); spot.hint_until = 0          # quiet return: straight to the sound meter
+            self.stack = [self.stack[0], spot]; scr = spot
         Cache.want = {getattr(scr, "needs", None)} - {None}
         self.load_glyphs(getattr(scr, "glyphs", "icons") if time.time() >= self.banner_until else "icons")
         try:
@@ -510,6 +517,7 @@ class Deck:
                 self.write(f"@L{r}{line}\n"); self.sent[r] = line
 
     def on_key(self, k):
+        self.last_input = time.time()
         if k in "UD" and INVERT_Y: k = "D" if k == "U" else "U"
         if k in "LR" and INVERT_X: k = "R" if k == "L" else "L"
         if time.time() < self.banner_until: self.banner_until = 0; return     # any key dismisses a banner
@@ -520,6 +528,7 @@ class Deck:
         self.stack[-1].key(k, self)
 
     def on_raw(self, pair):
+        self.last_input = time.time()
         print(f"keypad wires D{pair[0]}-D{pair[1]} -> {self.keymap.get(pair, '?')}")
         scr = self.stack[-1]
         if isinstance(scr, KeypadSetup): scr.raw(pair, self); return
